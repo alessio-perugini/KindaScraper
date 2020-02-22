@@ -50,10 +50,10 @@ type Elementi struct {
 	Nome string `json:"nome"`
 }
 
-func getCategorie(lsSpecifiche []SpecificaElement, azienda string) []string {
+func getCategorie(lsSpecifiche []SpecificaElement, url string) []string {
 	for _, Spec := range lsSpecifiche {
 		for _, elm := range Spec.Elementi {
-			if strings.ToLower(azienda) == strings.ToLower(elm.Nome) {
+			if strings.ToLower(url) == strings.ToLower(elm.URL) {
 				specifiche := strings.Split(Spec.Categoria, ",")
 
 				finalString := len(specifiche) - 1
@@ -96,8 +96,8 @@ func main() {
 						Provincia: infoToAdd["prov"],
 						Localita:  infoToAdd["loc"],
 						Email:     infoToAdd["email"],
-						Specifica: getCategorie(Specifica, azienda),
-						Regione:   elTot.Regione,
+						Specifica: getCategorie(Specifica, element.Url),
+						Regione:   strings.TrimSpace(elTot.Regione),
 						Azienda:   azienda,
 						Url:       element.Url,
 					}
@@ -159,7 +159,7 @@ func scrape() {
 
 			if isCentro {
 				elm := strings.TrimSpace(element.Text)
-				if !strings.HasPrefix(element.Text, "  >") && len(elm) > 0 {
+				if !strings.HasPrefix(element.Text, "  >") && len(elm) > 0 && !strings.Contains(elm, "Nessun centro assistenza") {
 					centri = append(centri, elm)
 				}
 			}
