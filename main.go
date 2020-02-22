@@ -40,9 +40,74 @@ var (
 	filenameOutput = "output.json"
 )
 
+type SpecificaElement struct {
+	Categoria string     `json:"categoria"`
+	Elementi  []Elementi `json:"elementi"`
+}
+
+type Elementi struct {
+	URL  string `json:"url"`
+	Nome string `json:"nome"`
+}
+
+func getCategorie(lsSpecifiche []SpecificaElement, azienda string) []string {
+	for _, Spec := range lsSpecifiche {
+		for _, elm := range Spec.Elementi {
+			if strings.ToLower(azienda) == strings.ToLower(elm.Nome) {
+				specifiche := strings.Split(Spec.Categoria, ",")
+
+				finalString := len(specifiche) - 1
+				for i, e := range specifiche {
+					if i == finalString {
+						e = strings.TrimSuffix(e, "...")
+					}
+					specifiche[i] = strings.TrimSpace(e)
+				}
+
+				return specifiche
+			}
+		}
+	}
+
+	return nil
+}
 func main() {
 	if _, err := os.Stat(filenameOutput); err == nil {
-		readFromJson() //If already Scraped
+		var lsScans []scanTotale
+		readFromJson(filenameOutput, &lsScans) //If already Scraped
+		var Specifica []SpecificaElement
+		readFromJson("./specifiche.json", &Specifica)
+
+		var lsCentri []centro
+
+		for _, element := range lsScans {
+			for _, elTot := range element.Totale {
+				for _, elCentro := range elTot.Centri {
+					splittedInfo := strings.Split(elCentro, "\n")
+					aziendaSplit := strings.Split(element.Url, "/")
+					azienda := strings.TrimSuffix(aziendaSplit[len(aziendaSplit)-1], ".html")
+					infoToAdd := guessFieldToParse(splittedInfo)
+
+					infoCentro := centro{
+						Nome:      splittedInfo[0],
+						Via:       infoToAdd["via"],
+						Telefono:  infoToAdd["tel"],
+						Cap:       infoToAdd["cap"],
+						Provincia: infoToAdd["prov"],
+						Localita:  infoToAdd["loc"],
+						Email:     infoToAdd["email"],
+						Specifica: getCategorie(Specifica, azienda),
+						Regione:   elTot.Regione,
+						Azienda:   azienda,
+						Url:       element.Url,
+					}
+
+					lsCentri = append(lsCentri, infoCentro)
+				}
+			}
+		}
+
+		saveToJson(lsCentri, "formatted.json")
 	} else if os.IsNotExist(err) {
 		scrape()
 	} else {
@@ -156,53 +221,18 @@ func saveToJson(totale interface{}, filename string) {
 	err = ioutil.WriteFile(filename, totJson, 0644)
 }
 
-func readFromJson() {
+func readFromJson(fname string, obj interface{}) {
 	// read file
-	data, err := ioutil.ReadFile("./" + filenameOutput)
+	data, err := ioutil.ReadFile("./" + fname)
 	if err != nil {
 		fmt.Print(err)
 	}
 
-	// json data
-	var lsScans []scanTotale
-
 	// unmarshall it
-	err = json.Unmarshal(data, &lsScans)
+	err = json.Unmarshal(data, &obj)
 	if err != nil {
 		fmt.Println("error:", err)
 	}
-
-	var lsCentri []centro
-
-	for _, element := range lsScans {
-		for _, elTot := range element.Totale {
-			for _, elCentro := range elTot.Centri {
-				splittedInfo := strings.Split(elCentro, "\n")
-				aziendaSplit := strings.Split(element.Url, "/")
-				azienda := strings.TrimSuffix(aziendaSplit[len(aziendaSplit)-1], ".html")
-
-				infoToAdd := guessFieldToParse(splittedInfo)
-
-				infoCentro := centro{
-					Nome:      splittedInfo[0],
-					Via:       infoToAdd["via"],
-					Telefono:  infoToAdd["tel"],
-					Cap:       infoToAdd["cap"],
-					Provincia: infoToAdd["prov"],
-					Localita:  infoToAdd["loc"],
-					Email:     infoToAdd["email"],
-					Specifica: nil,
-					Regione:   elTot.Regione,
-					Azienda:   azienda,
-					Url:       element.Url,
-				}
-
-				lsCentri = append(lsCentri, infoCentro)
-			}
-		}
-	}
-
-	saveToJson(lsCentri, "formatted.json")
 }
 
 func guessFieldToParse(dati []string) map[string]string {
@@ -216,17 +246,17 @@ func guessFieldToParse(dati []string) map[string]string {
 
 	for _, val := range dati[1:] {
 		if strings.HasPrefix(val, "Via") {
-			campiCentro["via"] = val
+			campiCentro["via"] = strings.TrimSpace(val)
 		} else if strings.HasPrefix(val, "Tel") {
-			campiCentro["tel"] = strings.TrimLeft(val, "Telefono ")
+			campiCentro["tel"] = strings.TrimSpace(strings.TrimLeft(val, "Telefono"))
 		} else if strings.HasPrefix(val, "Cap") {
-			campiCentro["cap"] = strings.TrimLeft(val, "Cap")
+			campiCentro["cap"] = strings.TrimSpace(strings.TrimLeft(val, "Cap"))
 		} else if strings.HasPrefix(val, "Provincia") {
-			campiCentro["prov"] = strings.TrimLeft(val, "Provincia ")
+			campiCentro["prov"] = strings.TrimSpace(strings.TrimLeft(val, "Provincia"))
 		} else if strings.HasPrefix(val, "Localita'") {
-			campiCentro["loc"] = strings.TrimLeft(val, "Localita' ")
+			campiCentro["loc"] = strings.TrimSpace(strings.TrimLeft(val, "Localita'"))
 		} else if strings.HasPrefix(val, "Email") {
-			campiCentro["email"] = strings.TrimLeft(val, "Email ")
+			campiCentro["email"] = strings.TrimSpace(strings.TrimLeft(val, "Email"))
 		}
 	}
 
