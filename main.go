@@ -25,14 +25,14 @@ type centro struct {
 	Url       string
 }
 
-type unisci struct {
-	Regione string
-	Centri  []string
-}
-
 type scanTotale struct {
 	Url    string
 	Totale []unisci
+}
+
+type unisci struct {
+	Regione string
+	Centri  []string
 }
 
 var (
@@ -102,7 +102,9 @@ func main() {
 						Url:       element.Url,
 					}
 
-					lsCentri = append(lsCentri, infoCentro)
+					if !(infoCentro.Via == "" && infoCentro.Telefono == "" && infoCentro.Cap == "" && infoCentro.Provincia == "" && infoCentro.Localita == "" && infoCentro.Email == "") {
+						lsCentri = append(lsCentri, infoCentro)
+					}
 				}
 			}
 		}
@@ -141,6 +143,26 @@ func scrape() {
 
 			isCentro := true
 			element.ForEach("span[style='background:#53ac53;font-family: verdana; font-size: 16px; color: #ffffff;']", func(i int, element *colly.HTMLElement) {
+				isCentro = false
+
+				if start {
+					lsRegioni = append(lsRegioni, strings.TrimSpace(element.Text))
+					start = false
+				} else {
+					u := unisci{
+						Regione: lsRegioni[len(lsRegioni)-1],
+						Centri:  centri,
+					}
+					totale = append(totale, u)
+					centri = nil
+					lsRegioni = append(lsRegioni, strings.Trim(element.Text, " "))
+				}
+			})
+			element.ForEach("span[style='background:#53ac53;fontCap -family: verdana; fontCap -size: 16px; color: #ffffff;']", func(i int, element *colly.HTMLElement) {
+				if strings.Contains(element.Text, ">") {
+					return
+				}
+
 				isCentro = false
 
 				if start {
